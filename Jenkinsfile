@@ -27,7 +27,7 @@ pipeline {
                 }
             }
             steps {
-                sh '''
+                sh'''
                     test -f build/index.html
                     npm test
                 '''
@@ -37,5 +37,6 @@ pipeline {
     post {
         always {
             junit 'test-results/junit.xml'
+        }
     }
 }
