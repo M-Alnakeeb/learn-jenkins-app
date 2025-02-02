@@ -54,7 +54,6 @@ pipeline {
                         npm install serve
                         node_modules/.bin/serve -s build &  # Change backslash to forward slash
                         sleep 10
-                        npx playwright install
                         npx playwright test
                     '''
                 }
