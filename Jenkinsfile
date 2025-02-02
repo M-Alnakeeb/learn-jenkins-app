@@ -62,15 +62,7 @@ pipeline {
     }
     post {
         always {
-            // Only attempt to record test results if a test report exists
-            script {
-                def testResults = 'test-results/junit.xml'
-                if (fileExists(testResults)) {
-                    junit testResults
-                } else {
-                    echo "No test results found. Skipping JUnit report."
-                }
-            }
+           junit 'jest-results/junit.xml'
         }
     }
 }
