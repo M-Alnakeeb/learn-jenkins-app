@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        // You can define global environment variables here, for example:
+        NODE_ENV = 'production'
+    }
+
     stages {
         /*
         stage('Build') {
@@ -35,12 +40,11 @@ pipeline {
                         }
                     }
                     steps {
-                            // Install dependencies (ensure react-scripts are installed)
-                            sh '''
-                                npm install
-                                npm test
-                            '''
-                        }
+                        // Install dependencies (ensure react-scripts are installed)
+                        sh '''
+                            npm install
+                            npm test
+                        '''
                     }
                 }
                 stage('E2E') {
@@ -62,15 +66,27 @@ pipeline {
                         }
                     }
                 }
-
-                    
             }
-        
+        }
     }
+
     post {
         always {
-           junit 'jest-results/junit.xml'
-           publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+            // Post-build actions like publishing test results
+            junit 'jest-results/junit.xml'
+            
+            // Publish Playwright HTML reports
+            publishHTML([
+                allowMissing: false, 
+                alwaysLinkToLastBuild: false, 
+                keepAll: false, 
+                reportDir: 'playwright-report', 
+                reportFiles: 'index.html', 
+                reportName: 'Playwright HTML Report',
+                useWrapperFileDirectly: true
+            ])
         }
+
+        
     }
 }
