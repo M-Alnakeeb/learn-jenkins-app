@@ -47,6 +47,7 @@ pipeline {
                         '''
                     }
                 }
+                
                 stage('E2E') {
                     agent {
                         docker {
@@ -76,17 +77,15 @@ pipeline {
             junit 'jest-results/junit.xml'
             
             // Publish Playwright HTML reports
-            publishHTML([
+            publishHTML([ 
                 allowMissing: false, 
                 alwaysLinkToLastBuild: false, 
                 keepAll: false, 
                 reportDir: 'playwright-report', 
                 reportFiles: 'index.html', 
                 reportName: 'Playwright HTML Report',
-                useWrapperFileDirectly: true
+                useWrapperFileDirectly: true 
             ])
         }
-
-        
     }
 }
