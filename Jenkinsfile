@@ -24,42 +24,48 @@ pipeline {
             }
         }
         */
-        stage('Test') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
+
+        stage('Run Test') {
+            parallel {
+                stage('Test') {
+                    agent {
+                        docker {
+                            image 'node:18-alpine'
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                            // Install dependencies (ensure react-scripts are installed)
+                            sh '''
+                                npm install
+                                npm test
+                            '''
+                        }
+                    }
                 }
-            }
-            steps {
-                script {
-                    // Install dependencies (ensure react-scripts are installed)
-                    sh '''
-                        npm install
-                        npm test
-                    '''
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.50.1-noble'
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                        script {
+                            sh '''
+                                npm install serve
+                                node_modules/.bin/serve -s build &  # Change backslash to forward slash
+                                sleep 10
+                                npx playwright install
+                                npx playwright test --reporter=line
+                            '''
+                        }
+                    }
                 }
-            }
-        }
-        stage('E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.50.1-noble'
-                    reuseNode true
+
+                    }
                 }
-            }
-            steps {
-                script {
-                    sh '''
-                        npm install serve
-                        node_modules/.bin/serve -s build &  # Change backslash to forward slash
-                        sleep 10
-                        npx playwright install
-                        npx playwright test --reporter=line
-                    '''
-                }
-            }
-        }
+        
     }
     post {
         always {
