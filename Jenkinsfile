@@ -59,6 +59,7 @@ pipeline {
                         script {
                             sh '''
                                 npm install serve
+                                npm install @playwright/test
                                 node_modules/.bin/serve -s build &  # Change backslash to forward slash
                                 sleep 10
                                 npx playwright install
@@ -87,5 +88,7 @@ pipeline {
                 useWrapperFileDirectly: true 
             ])
         }
+
+
     }
 }
