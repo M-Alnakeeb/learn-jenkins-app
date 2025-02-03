@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Build') {
             agent {
                 docker {
@@ -12,11 +11,21 @@ pipeline {
             }
             steps {
                 sh '''
+                    # Display directory contents and node/npm versions
                     ls -la
                     node --version
                     npm --version
+
+                    # Install dependencies and sync package-lock.json
+                    npm install
+
+                    # Now perform npm ci to ensure the lock file is respected
                     npm ci
+
+                    # Build the project
                     npm run build
+
+                    # Display directory contents again after build
                     ls -la
                 '''
             }
@@ -34,13 +43,13 @@ pipeline {
 
                     steps {
                         sh '''
-                            #test -f build/index.html
+                            # Run unit tests
                             npm test
                         '''
                     }
                     post {
                         always {
-                            junit 'jest-results/junit.xml'
+                            junit 'jest-results/junit.xml'  // Publish Jest results
                         }
                     }
                 }
@@ -55,10 +64,15 @@ pipeline {
 
                     steps {
                         sh '''
+                            # Install serve and serve the build directory
                             npm install serve
                             node_modules/.bin/serve -s build &
+
+                            # Wait for the app to start
                             sleep 10
-                            npx playwright test  --reporter=html
+
+                            # Run Playwright end-to-end tests
+                            npx playwright test --reporter=html
                         '''
                     }
 
@@ -80,7 +94,10 @@ pipeline {
             }
             steps {
                 sh '''
+                    # Install Netlify CLI for deployment
                     npm install netlify-cli
+
+                    # Check Netlify CLI version
                     node_modules/.bin/netlify --version
                 '''
             }
