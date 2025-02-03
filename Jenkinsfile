@@ -1,13 +1,9 @@
 pipeline {
     agent any
 
-    environment {
-        // You can define global environment variables here, for example:
-        NODE_ENV = 'production'
-    }
-
     stages {
         /*
+
         stage('Build') {
             agent {
                 docker {
@@ -16,79 +12,65 @@ pipeline {
                 }
             }
             steps {
-                script {
-                    // Install dependencies first
-                    sh '''
-                        ls -la
-                        node --version
-                        npm --version
-                        npm ci
-                        npm run build
-                    '''
-                }
+                sh '''
+                    ls -la
+                    node --version
+                    npm --version
+                    npm ci
+                    npm run build
+                    ls -la
+                '''
             }
         }
         */
 
-        stage('Run Test') {
+        stage('Tests') {
             parallel {
-                stage('Test') {
+                stage('Unit tests') {
                     agent {
                         docker {
                             image 'node:18-alpine'
                             reuseNode true
                         }
                     }
+
                     steps {
-                        // Install dependencies (ensure react-scripts are installed)
                         sh '''
-                            npm install
+                            #test -f build/index.html
                             npm test
                         '''
                     }
+                    post {
+                        always {
+                            junit 'jest-results/junit.xml'
+                        }
+                    }
                 }
-                
+
                 stage('E2E') {
                     agent {
                         docker {
-                            image 'mcr.microsoft.com/playwright:v1.50.1-noble'
+                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                             reuseNode true
                         }
                     }
+
                     steps {
-                        script {
-                            sh '''
-                                npm install serve
-                                npm install @playwright/test
-                                node_modules/.bin/serve -s build &  # Change backslash to forward slash
-                                sleep 10
-                                npx playwright install
-                                npx playwright test --reporter=line
-                            '''
+                        sh '''
+                            npm install serve
+                            node_modules/.bin/serve -s build &
+                            sleep 10
+                            npx playwright test  --reporter=html
+                        '''
+                    }
+
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
                         }
                     }
                 }
             }
         }
-    }
-
-    post {
-        always {
-            // Post-build actions like publishing test results
-            junit 'jest-results/junit.xml'
-            
-            // Publish Playwright HTML reports
-            publishHTML([ 
-                allowMissing: false, 
-                alwaysLinkToLastBuild: false, 
-                keepAll: false, 
-                reportDir: 'playwright-report', 
-                reportFiles: 'index.html', 
-                reportName: 'Playwright HTML Report',
-                useWrapperFileDirectly: true 
-            ])
-        }
-
-
     }
 }
