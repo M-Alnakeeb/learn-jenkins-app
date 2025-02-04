@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Build') {
             agent {
                 docker {
@@ -16,21 +17,11 @@ pipeline {
             }
             steps {
                 sh '''
-                    # Display directory contents and node/npm versions
                     ls -la
                     node --version
                     npm --version
-
-                    # Install dependencies and sync package-lock.json
-                    npm install
-
-                    # Now perform npm ci to ensure the lock file is respected
                     npm ci
-
-                    # Build the project
                     npm run build
-
-                    # Display directory contents again after build
                     ls -la
                 '''
             }
@@ -48,13 +39,13 @@ pipeline {
 
                     steps {
                         sh '''
-                            # Run unit tests
+                            #test -f build/index.html
                             npm test
                         '''
                     }
                     post {
                         always {
-                            junit 'jest-results/junit.xml'  // Publish Jest results
+                            junit 'jest-results/junit.xml'
                         }
                     }
                 }
@@ -69,21 +60,16 @@ pipeline {
 
                     steps {
                         sh '''
-                            # Install serve and serve the build directory
                             npm install serve
                             node_modules/.bin/serve -s build &
-
-                            # Wait for the app to start
                             sleep 10
-
-                            # Run Playwright end-to-end tests
-                            npx playwright test --reporter=html
+                            npx playwright test  --reporter=html
                         '''
                     }
 
                     post {
                         always {
-                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Local Report', reportTitles: '', useWrapperFileDirectly: true])
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Local', reportTitles: '', useWrapperFileDirectly: true])
                         }
                     }
                 }
@@ -99,10 +85,7 @@ pipeline {
             }
             steps {
                 sh '''
-                    # Install Netlify CLI for deployment
                     npm install netlify-cli
-
-                    # Check Netlify CLI version
                     node_modules/.bin/netlify --version
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
@@ -110,26 +93,28 @@ pipeline {
                 '''
             }
         }
+
         stage('Prod E2E') {
             agent {
                 docker {
-                    image 'mcr.microsoft.com/playwright:v1.50.1-noble'
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                     reuseNode true
                 }
             }
-            environment {
 
+            environment {
                 CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'
             }
+
             steps {
                 sh '''
-                    npx playwright test --reporter=html
+                    npx playwright test  --reporter=html
                 '''
             }
 
             post {
                 always {
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E Report', reportTitles: '', useWrapperFileDirectly: true])
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
