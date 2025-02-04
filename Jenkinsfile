@@ -4,6 +4,7 @@ pipeline {
     environment {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
+        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set the environment URL here
     }
 
     stages {
@@ -20,8 +21,14 @@ pipeline {
                     ls -la
                     node --version
                     npm --version
+                    
+                    # Install dependencies and update package-lock.json before using npm ci
+                    npm install
                     npm ci
+                    
+                    # Build the project
                     npm run build
+                    
                     ls -la
                 '''
             }
@@ -39,13 +46,13 @@ pipeline {
 
                     steps {
                         sh '''
-                            #test -f build/index.html
+                            # Run unit tests
                             npm test
                         '''
                     }
                     post {
                         always {
-                            junit 'jest-results/junit.xml'
+                            junit 'jest-results/junit.xml'  // Publish Jest test results
                         }
                     }
                 }
@@ -60,15 +67,21 @@ pipeline {
 
                     steps {
                         sh '''
+                            # Install serve to serve the build directory locally
                             npm install serve
                             node_modules/.bin/serve -s build &
+                            
+                            # Wait for the server to be up
                             sleep 10
-                            npx playwright test  --reporter=html
+                            
+                            # Run Playwright E2E tests
+                            npx playwright test --reporter=html
                         '''
                     }
 
                     post {
                         always {
+                            // Publish Playwright report
                             publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Local', reportTitles: '', useWrapperFileDirectly: true])
                         }
                     }
@@ -85,10 +98,19 @@ pipeline {
             }
             steps {
                 sh '''
+                    # Install Netlify CLI
                     npm install netlify-cli
+                    
+                    # Check Netlify CLI version
                     node_modules/.bin/netlify --version
+                    
+                    # Display message and deploy the app
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    
+                    # Check Netlify status
                     node_modules/.bin/netlify status
+                    
+                    # Deploy to production using the build directory
                     node_modules/.bin/netlify deploy --dir=build --prod
                 '''
             }
@@ -97,23 +119,21 @@ pipeline {
         stage('Prod E2E') {
             agent {
                 docker {
-                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    image 'mcr.microsoft.com/playwright:v1.50.1-noble'
                     reuseNode true
                 }
             }
 
-            environment {
-                CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'
-            }
-
             steps {
                 sh '''
-                    npx playwright test  --reporter=html
+                    # Run Playwright E2E tests against the production deployment
+                    npx playwright test --reporter=html
                 '''
             }
 
             post {
                 always {
+                    // Publish Playwright report for production E2E tests
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
