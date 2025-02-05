@@ -5,7 +5,7 @@ pipeline {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
         CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Default fallback environment URL
-        REACT_APP_VERSION = '1.2.3'  // Add version for tagging or deployment if needed
+        REACT_APP_VERSION = "1.0.$BUILD_ID"  // Add version for tagging or deployment if needed
     }
 
     stages {
