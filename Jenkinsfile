@@ -38,19 +38,16 @@ pipeline {
 
         stage('Tests') {
             parallel {
-                stage('Unit tests') {
+                stage('Unit Tests') {
                     agent {
                         docker {
                             image 'node:18-alpine'
                             reuseNode true
                         }
                     }
-
                     steps {
                         echo "Running Unit Tests"
                         sh '''
-                            # Uncomment the following line to test if build index.html exists
-                            # test -f build/index.html
                             npm test
                         '''
                     }
@@ -61,14 +58,13 @@ pipeline {
                     }
                 }
 
-                stage('E2E') {
+                stage('E2E Tests') {
                     agent {
                         docker {
                             image 'mcr.microsoft.com/playwright:v1.50.1-noble'
                             reuseNode true
                         }
                     }
-
                     steps {
                         echo "Running E2E Tests"
                         sh '''
@@ -78,7 +74,6 @@ pipeline {
                             npx playwright test --reporter=html
                         '''
                     }
-
                     post {
                         always {
                             publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, 
@@ -99,7 +94,7 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'https://your-staging-url-here'
+                CI_ENVIRONMENT_URL = ''
             }
 
             steps {
@@ -109,7 +104,7 @@ pipeline {
                     echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
                     netlify status
                     netlify deploy --dir=build --json > deploy-output.json
-                    export CI_ENVIRONMENT_URL=$(node-jq -r '.deploy_url' deploy-output.json)
+                    export CI_ENVIRONMENT_URL=$(node -e "console.log(require('./deploy-output.json').deploy_url)")
                     echo "Deployed to $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
@@ -133,17 +128,18 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'https://your-production-url-here'
+                CI_ENVIRONMENT_URL = ''
             }
 
             steps {
                 echo "Deploying to Production"
                 sh '''
-                    node --version
                     netlify --version
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     netlify status
-                    netlify deploy --dir=build --prod
+                    netlify deploy --dir=build --prod --json > deploy-output.json
+                    export CI_ENVIRONMENT_URL=$(node -e "console.log(require('./deploy-output.json').deploy_url)")
+                    echo "Deployed to $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
