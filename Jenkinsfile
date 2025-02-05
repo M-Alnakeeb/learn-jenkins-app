@@ -18,11 +18,18 @@ pipeline {
                 }
             }
             steps {
-                sh '''
-                    npm install netlify-cli node-jq
-                    node_modules/.bin/netlify --version
-                    node_modules/.bin/node-jq --version
-                '''
+                script {
+                    try {
+                        sh '''
+                            npm install netlify-cli node-jq
+                            node_modules/.bin/netlify --version
+                            node_modules/.bin/node-jq --version
+                        '''
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
+                }
             }
         }
 
@@ -34,14 +41,26 @@ pipeline {
                 }
             }
             steps {
-                sh '''
-                    ls -la
-                    node --version
-                    npm --version
-                    npm install
-                    npm run build
-                    ls -la
-                '''
+                script {
+                    try {
+                        sh '''
+                            ls -la
+                            node --version
+                            npm --version
+                            npm install
+                            npm run build
+                            ls -la
+                        '''
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts allowEmptyArchive: true, artifacts: '**/build/**/*', onlyIfSuccessful: false
+                }
             }
         }
 
@@ -56,9 +75,14 @@ pipeline {
                     }
 
                     steps {
-                        sh '''
-                            npm test
-                        '''
+                        script {
+                            try {
+                                sh 'npm test'
+                            } catch (Exception e) {
+                                currentBuild.result = 'FAILURE'
+                                throw e
+                            }
+                        }
                     }
                     post {
                         always {
@@ -76,12 +100,19 @@ pipeline {
                     }
 
                     steps {
-                        sh '''
-                            npm install serve
-                            node_modules/.bin/serve -s build &  # Serve the build folder
-                            sleep 10
-                            npx playwright test --reporter=html
-                        '''
+                        script {
+                            try {
+                                sh '''
+                                    npm install serve
+                                    node_modules/.bin/serve -s build &  # Serve the build folder
+                                    sleep 10
+                                    npx playwright test --reporter=html
+                                '''
+                            } catch (Exception e) {
+                                currentBuild.result = 'FAILURE'
+                                throw e
+                            }
+                        }
                     }
 
                     post {
@@ -108,14 +139,19 @@ pipeline {
             }
 
             steps {
-                sh '''
-                    echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --json > deploy-output.json
-                    CI_ENVIRONMENT_URL=$(node_modules/.bin/node-jq -r '.deploy_url' deploy-output.json)
-                    echo "Staging deployed at $CI_ENVIRONMENT_URL"
-                    npx playwright test --reporter=html
-                '''
+                script {
+                    try {
+                        echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
+                        sh 'node_modules/.bin/netlify status'
+                        sh 'node_modules/.bin/netlify deploy --dir=build --json > deploy-output.json'
+                        CI_ENVIRONMENT_URL = sh(script: 'node_modules/.bin/node-jq -r ".deploy_url" deploy-output.json', returnStdout: true).trim()
+                        echo "Staging deployed at $CI_ENVIRONMENT_URL"
+                        npx playwright test --reporter=html
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
+                }
             }
 
             post {
@@ -140,17 +176,19 @@ pipeline {
             }
 
             steps {
-                sh '''
-                    node --version
-                    npm install netlify-cli
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json
-                    CI_ENVIRONMENT_URL=$(node_modules/.bin/node-jq -r '.deploy_url' prod-deploy-output.json)
-                    echo "Production deployed at $CI_ENVIRONMENT_URL"
-                    npx playwright test --reporter=html
-                '''
+                script {
+                    try {
+                        echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                        sh 'node_modules/.bin/netlify status'
+                        sh 'node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json'
+                        CI_ENVIRONMENT_URL = sh(script: 'node_modules/.bin/node-jq -r ".deploy_url" prod-deploy-output.json', returnStdout: true).trim()
+                        echo "Production deployed at $CI_ENVIRONMENT_URL"
+                        npx playwright test --reporter=html
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
+                }
             }
 
             post {
@@ -160,6 +198,21 @@ pipeline {
                                  reportName: 'Prod E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            // Slack Notification on Success
+            slackSend channel: '#your-channel', color: 'good', message: "Build #${env.BUILD_NUMBER} was successful!"
+        }
+        failure {
+            // Slack Notification on Failure
+            slackSend channel: '#your-channel', color: 'danger', message: "Build #${env.BUILD_NUMBER} failed!"
+        }
+        always {
+            // Clean up any remaining resources or steps to run
+            echo 'Pipeline completed!'
         }
     }
 }
