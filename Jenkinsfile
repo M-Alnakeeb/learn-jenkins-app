@@ -4,7 +4,7 @@ pipeline {
     environment {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
-        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set default environment URL for fallback
+        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Default fallback environment URL
     }
 
     stages {
@@ -21,7 +21,8 @@ pipeline {
                     ls -la
                     node --version
                     npm --version
-                    npm ci
+                    # Ensure package-lock.json is in sync before running npm ci
+                    npm install
                     npm run build
                     ls -la
                 '''
@@ -40,7 +41,6 @@ pipeline {
 
                     steps {
                         sh '''
-                            #test -f build/index.html
                             npm test
                         '''
                     }
@@ -113,7 +113,7 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Use the dynamic staging URL for this environment
+                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Use the dynamic staging URL
             }
 
             steps {
@@ -152,11 +152,11 @@ pipeline {
                     node_modules/.bin/netlify --version
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod
+                    node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json
                 '''
                 script {
-                    // Get the production deployment URL from Netlify
-                    env.PROD_URL = sh(script: "node_modules/.bin/netlify deploy --dir=build --prod --json | jq -r '.deploy_url'", returnStdout: true).trim()
+                    // Extract the production deployment URL from the output JSON
+                    env.PROD_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' prod-deploy-output.json", returnStdout: true).trim()
                     echo "Production deployed at: ${env.PROD_URL}"
                     env.CI_ENVIRONMENT_URL = env.PROD_URL  // Update environment URL to production
                 }
@@ -191,4 +191,3 @@ pipeline {
         }
     }
 }
-
