@@ -4,7 +4,7 @@ pipeline {
     environment {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
-        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set default environment URL
+        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set default environment URL for fallback
     }
 
     stages {
@@ -113,7 +113,7 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Use the staging URL for this environment
+                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Use the dynamic staging URL for this environment
             }
 
             steps {
@@ -154,6 +154,12 @@ pipeline {
                     node_modules/.bin/netlify status
                     node_modules/.bin/netlify deploy --dir=build --prod
                 '''
+                script {
+                    // Get the production deployment URL from Netlify
+                    env.PROD_URL = sh(script: "node_modules/.bin/netlify deploy --dir=build --prod --json | jq -r '.deploy_url'", returnStdout: true).trim()
+                    echo "Production deployed at: ${env.PROD_URL}"
+                    env.CI_ENVIRONMENT_URL = env.PROD_URL  // Update environment URL to production
+                }
             }
         }
 
@@ -166,7 +172,7 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Production URL
+                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Dynamic production URL
             }
 
             steps {
@@ -185,3 +191,4 @@ pipeline {
         }
     }
 }
+
