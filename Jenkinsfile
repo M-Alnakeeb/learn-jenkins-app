@@ -4,7 +4,7 @@ pipeline {
     environment {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
-	CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set the environment URL here
+        CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Set default environment URL
     }
 
     stages {
@@ -62,15 +62,17 @@ pipeline {
                     steps {
                         sh '''
                             npm install serve
-                            node_modules/.bin/serve -s build &
+                            node_modules/.bin/serve -s build &  # Serve the build folder
                             sleep 10
-                            npx playwright test  --reporter=html
+                            npx playwright test --reporter=html
                         '''
                     }
 
                     post {
                         always {
-                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Local E2E', reportTitles: '', useWrapperFileDirectly: true])
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, 
+                                          reportDir: 'playwright-report', reportFiles: 'index.html', 
+                                          reportName: 'Local E2E', reportTitles: '', useWrapperFileDirectly: true])
                         }
                     }
                 }
@@ -93,7 +95,11 @@ pipeline {
                     node_modules/.bin/netlify deploy --dir=build --json > deploy-output.json
                 '''
                 script {
-                    env.STAGING_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' deploy-output.json", returnStdout: true)
+                    // Extract the deploy URL from the output JSON
+                    env.STAGING_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' deploy-output.json", returnStdout: true).trim()
+                    echo "Staging deployed at: ${env.STAGING_URL}"
+                    // Dynamically set the CI_ENVIRONMENT_URL to the staging URL
+                    env.CI_ENVIRONMENT_URL = env.STAGING_URL
                 }
             }
         }
@@ -107,18 +113,20 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = "${env.STAGING_URL}"
+                CI_ENVIRONMENT_URL = "${env.CI_ENVIRONMENT_URL}"  // Use the staging URL for this environment
             }
 
             steps {
                 sh '''
-                    npx playwright test  --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
             post {
                 always {
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Staging E2E', reportTitles: '', useWrapperFileDirectly: true])
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, 
+                                 reportDir: 'playwright-report', reportFiles: 'index.html', 
+                                 reportName: 'Staging E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
@@ -158,18 +166,20 @@ pipeline {
             }
 
             environment {
-                CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'
+                CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Production URL
             }
 
             steps {
                 sh '''
-                    npx playwright test  --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
             post {
                 always {
-                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Prod E2E', reportTitles: '', useWrapperFileDirectly: true])
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, 
+                                 reportDir: 'playwright-report', reportFiles: 'index.html', 
+                                 reportName: 'Prod E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
