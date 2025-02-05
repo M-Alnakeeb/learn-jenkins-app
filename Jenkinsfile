@@ -142,30 +142,6 @@ pipeline {
         stage('Deploy prod') {
             agent {
                 docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh '''
-                    npm install netlify-cli
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json
-                '''
-                script {
-                    // Extract the production deployment URL from the output JSON
-                    env.PROD_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' prod-deploy-output.json", returnStdout: true).trim()
-                    echo "Production deployed at: ${env.PROD_URL}"
-                    env.CI_ENVIRONMENT_URL = env.PROD_URL  // Update environment URL to production
-                }
-            }
-        }
-
-        stage('Prod E2E') {
-            agent {
-                docker {
                     image 'mcr.microsoft.com/playwright:v1.50.1-noble'
                     reuseNode true
                 }
@@ -177,6 +153,12 @@ pipeline {
 
             steps {
                 sh '''
+                    node --version
+                    npm install netlify-cli
+                    node_modules/.bin/netlify --version
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    node_modules/.bin/netlify status
+                    node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json
                     npx playwright test --reporter=html
                 '''
             }
