@@ -5,10 +5,26 @@ pipeline {
         NETLIFY_SITE_ID = '38fca2d5-7088-4ac2-b102-32699605ad28'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
         CI_ENVIRONMENT_URL = 'https://rainbow-mooncake-99927d.netlify.app'  // Default fallback environment URL
-        REASCT_APP_VERSION = '1.2.3'
+        REACT_APP_VERSION = '1.2.3'  // Add version for tagging or deployment if needed
     }
 
     stages {
+
+        stage('Setup dependencies') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    npm install netlify-cli node-jq
+                    node_modules/.bin/netlify --version
+                    node_modules/.bin/node-jq --version
+                '''
+            }
+        }
 
         stage('Build') {
             agent {
@@ -22,7 +38,6 @@ pipeline {
                     ls -la
                     node --version
                     npm --version
-                    # Ensure package-lock.json is in sync before running npm ci
                     npm install
                     npm run build
                     ls -la
@@ -94,12 +109,11 @@ pipeline {
 
             steps {
                 sh '''
-                    npm install netlify-cli node-jq
-                    node_modules/.bin/netlify --version
                     echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
                     node_modules/.bin/netlify deploy --dir=build --json > deploy-output.json
                     CI_ENVIRONMENT_URL=$(node_modules/.bin/node-jq -r '.deploy_url' deploy-output.json)
+                    echo "Staging deployed at $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
@@ -133,6 +147,8 @@ pipeline {
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
                     node_modules/.bin/netlify deploy --dir=build --prod --json > prod-deploy-output.json
+                    CI_ENVIRONMENT_URL=$(node_modules/.bin/node-jq -r '.deploy_url' prod-deploy-output.json)
+                    echo "Production deployed at $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
